@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Card Flip</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      .wrapper {
+        min-height: 100vh;
+        background: #2a2a2a;
+      }
+
+      .header {
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        max-width: 510px;
+        margin: 0 auto;
+        padding: 0 25px;
+        color: #fff;
+      }
+
+      .title {
+        font-size: 40px;
+        text-align: center;
+      }
+
+      .life {
+        margin-top: 6px;
+        font-size: 20px;
+        text-align: right;
+      }
+
+      .life em {
+        font-style: normal;
+      }
+
+      .container {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 20px;
+        max-width: 510px;
+        padding: 25px;
+        margin: 0 auto;
+        aspect-ratio: 1;
+        perspective: 800px;
+      }
+
+      .card {
+        position: relative;
+        width: calc(25% - 15px);
+        aspect-ratio: 3 / 4;
+        transition: transform 500ms ease-in-out;
+        transform-style: preserve-3d;
+      }
+
+      .front,
+      .back {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        position: absolute;
+        width: 100%;
+        height: 100%;
+        border-radius: 10px;
+        font-size: 20px;
+        backface-visibility: hidden;
+      }
+
+      .front {
+        background: #fff;
+        transform: rotateY(180deg);
+      }
+
+      .back {
+        background-image: url("data:image/svg+xml,<svg id='patternId' width='100%' height='100%' xmlns='http://www.w3.org/2000/svg'><defs><pattern id='a' patternUnits='userSpaceOnUse' width='60' height='30' patternTransform='scale(1) rotate(45)'><rect x='0' y='0' width='100%' height='100%' fill='hsla(0, 0%, 100%, 1)'/><path d='M1-6.5v13h28v-13H1zm15 15v13h28v-13H16zm-15 15v13h28v-13H1z'  stroke-width='1' stroke='none' fill='hsla(122, 39%, 49%, 1)'/><path d='M31-6.5v13h28v-13H31zm-45 15v13h28v-13h-28zm60 0v13h28v-13H46zm-15 15v13h28v-13H31z'  stroke-width='1' stroke='none' fill='hsla(231, 48%, 48%, 1)'/></pattern></defs><rect width='800%' height='800%' transform='translate(-89,-53)' fill='url(%23a)'/></svg>");
+      }
+
+      .flip {
+        transform: rotateY(180deg);
+      }
+
+      .pass {
+        transform: rotateY(180deg);
+      }
+
+      .modal {
+        display: none;
+        align-items: center;
+        justify-content: center;
+        flex-direction: column;
+        position: fixed;
+        z-index: 10;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.6);
+      }
+
+      .modal.show {
+        display: flex;
+      }
+
+      .modal p {
+        margin-bottom: 20px;
+        font-size: 32px;
+        font-weight: 600;
+        color: #fff;
+      }
+
+      .modal button {
+        padding: 10px;
+        border: 0;
+        border-radius: 6px;
+        background: #fff;
+        font-size: 14px;
+        cursor: pointer;
+      }
+    </style>
+  </head>
+
+  <body>
+    <div class="wrapper">
+      <header class="header">
+        <h1 class="title">Memory Cards</h1>
+        <span class="life">Life : <em id="life-count"></em></span>
+      </header>
+
+      <div class="container"></div>
+
+      <div class="modal" id="modal">
+        <p>Game Over</p>
+        <button type="button" onclick="gameReStart()">ReStart</button>
+      </div>
+    </div>
+
+    <script>
+      let life = 5;
+      const totalPairs = 8; // 수정된 부분: 카드 쌍의 수를 동적으로 설정할 수 있도록 함
+
+      const createCardArray = (numPairs) => {
+        // 수정된 부분: 카드 쌍의 수를 인자로 받도록 함
+        const defaultArray = Array.from(
+          { length: numPairs },
+          (_, index) => index
+        );
+        const cloneArray = [...defaultArray, ...defaultArray];
+
+        for (let i = cloneArray.length - 1; i > 0; i--) {
+          let j = Math.floor(Math.random() * (i + 1));
+          [cloneArray[i], cloneArray[j]] = [cloneArray[j], cloneArray[i]];
+        }
+
+        return cloneArray;
+      };
+
+      const renderHTML = (array) => {
+        const container = document.querySelector(".container");
+
+        for (let i = 0; i < array.length; i++) {
+          const card = document.createElement("div");
+          const front = document.createElement("div");
+          const back = document.createElement("div");
+          card.classList.add("card");
+          front.classList.add("front");
+          front.innerText = `${array[i]}`;
+          back.classList.add("back");
+
+          card.appendChild(front);
+          card.appendChild(back);
+          container.appendChild(card);
+        }
+      };
+
+      const renderLife = (num = life) => {
+        document.getElementById("life-count").innerText = `${life}`;
+
+        if (life === 0) gameOver();
+      };
+
+      const gameOver = () => {
+        document.getElementById("modal").classList.add("show");
+      };
+
+      const gameReStart = () => {
+        life = 5;
+        document.getElementById("modal").classList.remove("show");
+        document.querySelector(".container").innerHTML = "";
+        init();
+      };
+
+      const handleEvent = () => {
+        if (life === 0) return;
+
+        let selectCard = null,
+          isStop = false;
+
+        [...document.getElementsByClassName("card")].forEach((card) => {
+          card.addEventListener("click", function (e) {
+            if (isStop || card.classList.contains("pass")) return;
+            card.classList.toggle("flip");
+
+            if (!selectCard) {
+              selectCard = card;
+            } else {
+              isStop = true;
+
+              if (
+                selectCard.firstChild.innerText === card.firstChild.innerText
+              ) {
+                [card, selectCard].forEach((card) =>
+                  card.classList.add("pass")
+                );
+                selectCard = null;
+                isStop = false;
+              } else {
+                renderLife((life -= 1));
+                setTimeout(() => {
+                  [card, selectCard].forEach((card) =>
+                    card.classList.remove("flip")
+                  );
+                  selectCard = null;
+                  isStop = false;
+                }, 800);
+              }
+            }
+          });
+        });
+      };
+
+      const init = () => {
+        renderHTML(createCardArray(totalPairs));
+        renderLife();
+        handleEvent();
+      };
+
+      init();
+    </script>
+  </body>
+</html>
